@@ -11,7 +11,7 @@ github.com/dustin/go-humanize
 github.com/fujiwara/shapeio
 # github.com/golang/protobuf v1.3.2
 github.com/golang/protobuf/proto
-# golang.org/x/net v0.0.0-20190916140828-c8589233b77d
+# golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 # golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
@@ -20,7 +20,7 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+# golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 golang.org/x/sync/errgroup
 # golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 golang.org/x/time/rate
