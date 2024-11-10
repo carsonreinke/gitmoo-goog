@@ -1,6 +1,8 @@
 // Package downloader Options defines downloader options
 package downloader
 
+import "github.com/dtylman/gitmoo-goog/itemlibrary"
+
 // Options Defines downloader various options
 type Options struct {
 	//BackupFolderis the backup folder
@@ -27,4 +29,14 @@ type Options struct {
 	CredentialsFile string
 	//TokenFile Google oauth client token.json file
 	TokenFile string
+	//UseCleaner TODO
+	UseCleaner bool
+}
+
+func (o *Options) ToItemLibraryOptions() *itemlibrary.Options {
+	options := new(itemlibrary.Options)
+	options.BackupFolder = o.BackupFolder
+	options.FolderFormat = o.FolderFormat
+	options.UseFileName = o.UseFileName
+	return options
 }

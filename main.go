@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/dtylman/gitmoo-goog/downloader"
+	dler "github.com/dtylman/gitmoo-goog/downloader"
 	"github.com/dtylman/gitmoo-goog/version"
 	photoslibrary "github.com/gphotosuploader/googlemirror/api/photoslibrary/v1"
 	"golang.org/x/net/context"
@@ -115,7 +116,7 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func process(downloader *downloader.Downloader) error {
+func process(downloader *dler.Downloader) error {
 	b, err := ioutil.ReadFile(downloader.Options.CredentialsFile)
 	if err != nil {
 		log.Println("Enable photos API here: https://developers.google.com/photos/library/guides/get-started#enable-the-api")
@@ -134,7 +135,9 @@ func process(downloader *downloader.Downloader) error {
 		return fmt.Errorf("Unable to retrieve Google Photos API client: %v", err)
 	}
 	for true {
-		err := downloader.DownloadAll(srv)
+		err := downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) dler.MediaItemsSearchCall {
+			return srv.MediaItems.Search(smir)
+		})
 		if err != nil {
 			if options.ignoreerrors {
 				log.Println(err)
