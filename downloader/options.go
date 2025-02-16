@@ -29,8 +29,8 @@ type Options struct {
 	CredentialsFile string
 	//TokenFile Google oauth client token.json file
 	TokenFile string
-	//UseCleaner TODO
-	UseCleaner bool
+	//WritesEnabled TODO
+	WritesEnabled bool
 }
 
 func (o *Options) ToItemLibraryOptions() *itemlibrary.Options {

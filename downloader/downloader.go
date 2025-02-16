@@ -12,24 +12,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dtylman/gitmoo-goog/cleaner"
 	"github.com/dtylman/gitmoo-goog/itemlibrary"
+	"github.com/dtylman/gitmoo-goog/photoslibraryextended"
 	"github.com/dustin/go-humanize"
 	"github.com/fujiwara/shapeio"
 	photoslibrary "github.com/gphotosuploader/googlemirror/api/photoslibrary/v1"
 	errgroup "golang.org/x/sync/errgroup"
-	"google.golang.org/api/googleapi"
+	//main "github.com/dtylman/gitmoo-goog/photoslibrary"
 )
-
-type HTTPClient interface {
-	Get(url string) (resp *http.Response, err error)
-}
-type MediaItemsServiceSearch func(*photoslibrary.SearchMediaItemsRequest) MediaItemsSearchCall
-type MediaItemsService interface {
-	Search(*photoslibrary.SearchMediaItemsRequest) MediaItemsSearchCall
-}
-type MediaItemsSearchCall interface {
-	Do(opts ...googleapi.CallOption) (*photoslibrary.SearchMediaItemsResponse, error)
-}
 
 // Downloader Struct for downloading photos into managed folders, use factory
 // method `NewDownloader` to create
@@ -37,8 +28,9 @@ type Downloader struct {
 	waitGroup                  *errgroup.Group
 	concurrentDownloadRoutines chan struct{}
 	stats                      *Stats
-	client                     HTTPClient
+	client                     photoslibraryextended.HTTPClient
 	Options                    *Options
+	Cleaner                    *cleaner.Cleaner
 }
 
 // NewDownloader factory to create a Downloader instance with defaults
@@ -47,7 +39,7 @@ func NewDownloader() *Downloader {
 }
 
 // NewDownloaderWithClient factory to create a Downloader instance using the provided HTTP client
-func NewDownloaderWithClient(client HTTPClient) *Downloader {
+func NewDownloaderWithClient(client photoslibraryextended.HTTPClient) *Downloader {
 	downloader := new(Downloader)
 	downloader.waitGroup = new(errgroup.Group)
 	downloader.stats = new(Stats)
@@ -55,6 +47,7 @@ func NewDownloaderWithClient(client HTTPClient) *Downloader {
 	downloader.concurrentDownloadRoutines = make(chan struct{}, 1)
 
 	downloader.Options = new(Options)
+	downloader.Options.WritesEnabled = false
 	downloader.Options.BackupFolder, _ = os.Getwd()
 	downloader.Options.FolderFormat = filepath.Join("2006", "January")
 	downloader.Options.ConcurrentDownloads = 1
@@ -177,13 +170,24 @@ func (d *Downloader) downloadItem(item *photoslibrary.MediaItem) error {
 			return err
 		}
 
-		err = libraryItem.CreateJSON()
-		if err != nil {
-			return err
+		if d.Options.WritesEnabled {
+			err = libraryItem.CreateJSON()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	return d.createImage(libraryItem)
+	if d.Options.WritesEnabled {
+		err = d.createImage(libraryItem)
+	}
+
+	// Remove item from cleaner
+	if d.Cleaner != nil {
+		d.Cleaner.Remove(libraryItem)
+	}
+
+	return err
 }
 
 // waitForCompletion Wait for all downloads to complete
@@ -197,7 +201,7 @@ func (d *Downloader) waitForCompletion() error {
 }
 
 // DownloadAll Downloads all files
-func (d *Downloader) DownloadAll(svc MediaItemsServiceSearch) error {
+func (d *Downloader) DownloadAll(svc photoslibraryextended.MediaItemsServiceSearch) error {
 	hasMore := true
 	sleepTime := time.Duration(time.Second * time.Duration(d.Options.Throttle))
 

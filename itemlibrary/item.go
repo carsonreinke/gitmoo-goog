@@ -44,17 +44,8 @@ func JSONExists(mediaItem *photoslibrary.MediaItem, options *Options) (bool, err
 	return true, nil
 }
 
-// LoadFromJSON Load the Item from a JSON file
-func LoadFromJSON(mediaItem *photoslibrary.MediaItem, options *Options) (*Item, error) {
-	exists, err := JSONExists(mediaItem, options)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, nil
-	}
-
-	filePath := GetJSONFilePath(mediaItem, options)
+// Load TODO
+func Load(filePath string, options *Options) (*Item, error) {
 	bytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -68,6 +59,20 @@ func LoadFromJSON(mediaItem *photoslibrary.MediaItem, options *Options) (*Item, 
 	// After loading, set the current options
 	item.options = options
 	return item, nil
+}
+
+// LoadFromJSON Load the Item from a JSON file
+func LoadFromJSON(mediaItem *photoslibrary.MediaItem, options *Options) (*Item, error) {
+	exists, err := JSONExists(mediaItem, options)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	filePath := GetJSONFilePath(mediaItem, options)
+	return Load(filePath, options)
 }
 
 // FindNonConflictingItem Find an item that does not have a conflicting name
@@ -93,6 +98,26 @@ func FindNonConflictingItem(mediaItem *photoslibrary.MediaItem, options *Options
 	}
 
 	return item, nil
+}
+
+// WalkLibrary TODO
+func WalkLibrary(options *Options, walkFunc func(*Item) error) error {
+	return filepath.Walk(options.BackupFolder, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if filepath.Ext(filePath) != ".json" {
+			return nil
+		}
+
+		item, err := Load(filePath, options)
+		if err != nil {
+			return err
+		}
+
+		return walkFunc(item)
+	})
 }
 
 // CreateJSON Create a JSON file to represent the Item
@@ -162,6 +187,17 @@ func (i *Item) ImageFileExists() (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// Remove Delete the JSON and image file for the item
+func (i *Item) Remove() error {
+	err1 := os.Remove(GetJSONFilePath(&i.MediaItem, i.options))
+	err2 := os.Remove(i.GetImageFilePath())
+
+	if err1 != nil {
+		return err1
+	}
+	return err2
 }
 
 // marshalJSON Marshal item as json

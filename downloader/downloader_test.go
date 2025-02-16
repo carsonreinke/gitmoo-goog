@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/dtylman/gitmoo-goog/itemlibrary"
+	"github.com/dtylman/gitmoo-goog/photoslibraryextended"
 	photoslibrary "github.com/gphotosuploader/googlemirror/api/photoslibrary/v1"
 	"google.golang.org/api/googleapi"
 )
@@ -253,7 +254,7 @@ func TestDownloadAll(t *testing.T) {
 		searchCall := createMockMediaItemsSearchCall([]*photoslibrary.MediaItem{})
 		service := createMockMediaItemsService([]*MockMediaItemsSearchCall{searchCall})
 
-		err := downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) MediaItemsSearchCall {
+		err := downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) photoslibraryextended.MediaItemsSearchCall {
 			return service.Search(smir)
 		})
 		if err != nil {
@@ -277,7 +278,7 @@ func TestDownloadAll(t *testing.T) {
 		})
 		service := createMockMediaItemsService([]*MockMediaItemsSearchCall{searchCall})
 
-		err = downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) MediaItemsSearchCall {
+		err = downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) photoslibraryextended.MediaItemsSearchCall {
 			return service.Search(smir)
 		})
 		if err != nil {

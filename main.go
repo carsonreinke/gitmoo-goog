@@ -13,8 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dtylman/gitmoo-goog/downloader"
+	clr "github.com/dtylman/gitmoo-goog/cleaner"
 	dler "github.com/dtylman/gitmoo-goog/downloader"
+	"github.com/dtylman/gitmoo-goog/photoslibraryextended"
 	"github.com/dtylman/gitmoo-goog/version"
 	photoslibrary "github.com/gphotosuploader/googlemirror/api/photoslibrary/v1"
 	"golang.org/x/net/context"
@@ -25,11 +26,13 @@ import (
 )
 
 var options struct {
-	loop         bool
-	logfile      string
-	ignoreerrors bool
-	version      bool
-	loopbackPort int
+	loop             bool
+	logfile          string
+	ignoreerrors     bool
+	version          bool
+	loopbackPort     int
+	downloadsEnabled bool
+	cleanupEnabled   bool
 }
 var authCodeChan chan string
 
@@ -116,7 +119,7 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func process(downloader *dler.Downloader) error {
+func process(downloader *dler.Downloader, cleaner *clr.Cleaner) error {
 	b, err := ioutil.ReadFile(downloader.Options.CredentialsFile)
 	if err != nil {
 		log.Println("Enable photos API here: https://developers.google.com/photos/library/guides/get-started#enable-the-api")
@@ -134,17 +137,30 @@ func process(downloader *dler.Downloader) error {
 	if err != nil {
 		return fmt.Errorf("Unable to retrieve Google Photos API client: %v", err)
 	}
-	for true {
-		err := downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) dler.MediaItemsSearchCall {
-			return srv.MediaItems.Search(smir)
-		})
-		if err != nil {
-			if options.ignoreerrors {
-				log.Println(err)
-			} else {
-				return err
-			}
+
+	for {
+		if cleaner != nil {
+			cleaner.Initialize()
 		}
+
+		// TODO uncomment
+		// err := downloader.DownloadAll(func(smir *photoslibrary.SearchMediaItemsRequest) photoslibraryextended.MediaItemsSearchCall {
+		// 	return srv.MediaItems.Search(smir)
+		// })
+		// if err != nil {
+		// 	if options.ignoreerrors {
+		// 		log.Println(err)
+		// 	} else {
+		// 		return err
+		// 	}
+		// }
+
+		if cleaner != nil {
+			cleaner.CleanAll(func(mediaItemId string) photoslibraryextended.MediaItemsGetCall {
+				return srv.MediaItems.Get(mediaItemId)
+			})
+		}
+
 		if !options.loop {
 			break
 		}
@@ -154,7 +170,7 @@ func process(downloader *dler.Downloader) error {
 
 func main() {
 	workingDirectory, _ := os.Getwd()
-	downloader := downloader.NewDownloader()
+	downloader := dler.NewDownloader()
 	flag.BoolVar(&options.loop, "loop", false, "loops forever (use as daemon)")
 	flag.BoolVar(&options.ignoreerrors, "force", false, "ignore errors, and force working")
 	flag.StringVar(&options.logfile, "logfile", "", "log to this file")
@@ -172,6 +188,8 @@ func main() {
 	flag.StringVar(&downloader.Options.CredentialsFile, "credentials-file", "credentials.json", "filepath to where the credentials file can be found")
 	flag.StringVar(&downloader.Options.TokenFile, "token-file", "token.json", "filepath to where the token should be stored")
 	flag.IntVar(&options.loopbackPort, "loopback-port", 8080, "Loopback port for Google authentication process")
+	flag.BoolVar(&options.downloadsEnabled, "download", true, "enable downloads")
+	flag.BoolVar(&options.cleanupEnabled, "cleanup", false, "remove items that are no longer in the Google Photos library")
 
 	flag.Parse()
 	if options.logfile != "" {
@@ -191,7 +209,20 @@ func main() {
 		log.Println("This is gitmoo-goog ver", version.Version)
 	}
 
-	err := process(downloader)
+	downloader.Options.WritesEnabled = options.downloadsEnabled
+
+	var cleaner *clr.Cleaner
+	if options.cleanupEnabled {
+		cleaner = clr.NewCleaner()
+		cleaner.Options.WritesEnabled = true
+		cleaner.Options.BackupFolder = downloader.Options.BackupFolder
+		cleaner.Options.FolderFormat = downloader.Options.FolderFormat
+		cleaner.Options.UseFileName = downloader.Options.UseFileName
+
+		downloader.Cleaner = cleaner
+	}
+
+	err := process(downloader, cleaner)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
